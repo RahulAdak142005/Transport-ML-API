@@ -115,41 +115,45 @@ def home():
 def predict_transport_mode(data: dict):
 
     try:
-
-        # Create dataframe from JSON
+        # Convert request JSON to DataFrame
         row = pd.DataFrame([data])
 
-        # Feature engineering
+        # Add engineered features
         row = add_engineered_features(row)
 
-        # Select exactly the model features
+        # Select model features
         row_features = row[FEATURE_COLS]
 
-        # Check model input
-        if not np.isfinite(row_features.to_numpy()).all():
-            raise ValueError(
-                "Engineered features contain NaN or infinite values."
+        # Check input features
+        if not np.isfinite(row_features.to_numpy(dtype=float)).all():
+            raise HTTPException(
+                status_code=400,
+                detail="Input contains NaN or infinite values."
             )
 
-        # Prediction
+        # Predict class
         pred_label = rf_model.predict(row_features)[0]
 
-        # Probability
+        # Predict probabilities
         probabilities = rf_model.predict_proba(row_features)[0]
 
-        # Convert class
-        mode = label_encoder.inverse_transform(
-            [pred_label]
-        )[0]
+        # Convert predicted label
+        mode = label_encoder.inverse_transform([pred_label])[0]
 
-        # Check probabilities
+        # Debug: check probabilities
+        print("Predicted label:", pred_label)
+        print("Predicted mode:", mode)
+        print("Probabilities:", probabilities)
+        print("Model classes:", rf_model.classes_)
+        print("Label encoder classes:", label_encoder.classes_)
+
+        # Check whether probabilities contain NaN/Inf
         if not np.isfinite(probabilities).all():
 
-            # Return prediction without invalid NaN probabilities
             return {
                 "mode": str(mode),
-                "confidence": {},
-                "warning": "Model returned non-finite probability values."
+                "confidence": None,
+                "warning": "Model returned NaN or infinite probability values."
             }
 
         confidence = {
@@ -165,7 +169,11 @@ def predict_transport_mode(data: dict):
             "confidence": confidence
         }
 
+    except HTTPException:
+        raise
+
     except Exception as e:
+        print("Prediction error:", repr(e))
 
         raise HTTPException(
             status_code=500,

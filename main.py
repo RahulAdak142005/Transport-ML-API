@@ -114,39 +114,32 @@ def home():
 @app.post("/predict")
 def predict_transport_mode(data: dict):
     try:
-        print("INPUT:", data)
-
         row = pd.DataFrame([data])
-
         row = add_engineered_features(row)
-
         row_features = row[FEATURE_COLS]
 
-        print("MODEL FEATURES:")
-        print(row_features)
-
-        # Check input values
-        print("FINITE INPUT:",
-              np.isfinite(row_features.to_numpy(dtype=float)).all())
-
-        # Test prediction only
+        # Predicted class (encoded)
         pred_label = rf_model.predict(row_features)[0]
-
-        print("PREDICT LABEL:", pred_label)
-
         mode = label_encoder.inverse_transform([pred_label])[0]
 
-        print("PREDICTED MODE:", mode)
+        # Probability for every class
+        proba = rf_model.predict_proba(row_features)[0]
+        class_names = label_encoder.inverse_transform(rf_model.classes_)
 
-        # IMPORTANT:
-        # Do NOT call predict_proba() yet.
+        probabilities = {
+            str(name): round(float(p), 4)
+            for name, p in zip(class_names, proba)
+        }
+
+        confidence = float(np.max(proba))
+
         return {
-            "mode": str(mode)
+            "mode": str(mode),
+            "confidence": round(confidence, 4),
+            "confidence_percent": round(confidence * 100, 2),
+            "probabilities": probabilities
         }
 
     except Exception as e:
         print("PREDICTION ERROR:", repr(e))
-        raise HTTPException(
-            status_code=500,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=500, detail=str(e))

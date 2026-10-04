@@ -108,6 +108,20 @@ def home():
 
 
 # --------------------------------------------------
+# Health Check
+# --------------------------------------------------
+
+@app.get("/health")
+def health_check():
+
+    return {
+        "status": "healthy",
+        "message": "EcoTrace Transport Mode API is running",
+        "model_loaded": True
+    }
+
+
+# --------------------------------------------------
 # Prediction
 # --------------------------------------------------
 

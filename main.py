@@ -113,68 +113,39 @@ def home():
 
 @app.post("/predict")
 def predict_transport_mode(data: dict):
-
     try:
-        # Convert request JSON to DataFrame
+        print("INPUT:", data)
+
         row = pd.DataFrame([data])
 
-        # Add engineered features
         row = add_engineered_features(row)
 
-        # Select model features
         row_features = row[FEATURE_COLS]
 
-        # Check input features
-        if not np.isfinite(row_features.to_numpy(dtype=float)).all():
-            raise HTTPException(
-                status_code=400,
-                detail="Input contains NaN or infinite values."
-            )
+        print("MODEL FEATURES:")
+        print(row_features)
 
-        # Predict class
+        # Check input values
+        print("FINITE INPUT:",
+              np.isfinite(row_features.to_numpy(dtype=float)).all())
+
+        # Test prediction only
         pred_label = rf_model.predict(row_features)[0]
 
-        # Predict probabilities
-        probabilities = rf_model.predict_proba(row_features)[0]
+        print("PREDICT LABEL:", pred_label)
 
-        # Convert predicted label
         mode = label_encoder.inverse_transform([pred_label])[0]
 
-        # Debug: check probabilities
-        print("Predicted label:", pred_label)
-        print("Predicted mode:", mode)
-        print("Probabilities:", probabilities)
-        print("Model classes:", rf_model.classes_)
-        print("Label encoder classes:", label_encoder.classes_)
+        print("PREDICTED MODE:", mode)
 
-        # Check whether probabilities contain NaN/Inf
-        if not np.isfinite(probabilities).all():
-
-            return {
-                "mode": str(mode),
-                "confidence": None,
-                "warning": "Model returned NaN or infinite probability values."
-            }
-
-        confidence = {
-            str(cls): round(float(probability), 4)
-            for cls, probability in zip(
-                label_encoder.classes_,
-                probabilities
-            )
-        }
-
+        # IMPORTANT:
+        # Do NOT call predict_proba() yet.
         return {
-            "mode": str(mode),
-            "confidence": confidence
+            "mode": str(mode)
         }
-
-    except HTTPException:
-        raise
 
     except Exception as e:
-        print("Prediction error:", repr(e))
-
+        print("PREDICTION ERROR:", repr(e))
         raise HTTPException(
             status_code=500,
             detail=str(e)
